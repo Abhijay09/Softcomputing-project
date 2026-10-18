@@ -10,6 +10,7 @@ R = json.load(open("docs/results.json"))
 E = json.load(open("docs/experiments.json"))
 B = R["reliability_buckets"]
 d = Document()
+sec = d.sections[0]; sec.page_width, sec.page_height = Inches(8.27), Inches(11.69)
 d.styles["Normal"].font.name = "Calibri"; d.styles["Normal"].font.size = Pt(11)
 def H(t, l=1): d.add_heading(t, l)
 def P(t, bold=False, italic=False):
@@ -29,13 +30,37 @@ def TABLE(rows, header=True):
             if i == 0 and header: t.cell(i, j).paragraphs[0].runs[0].bold = True
     d.add_paragraph()
 
-t = d.add_heading("Detection of Alphanumeric Handwritten Values using Fuzzy Logic", 0)
-P("INT3141 – Soft Computing Techniques  |  Project Submission (Intermediate)", bold=True)
-P("Manipal University Jaipur, Department of Information Technology, B.Tech IT, V Sem, 2026-27")
-P("Team members: Abhijay Shrivastava (2430030333), Aarush Dayal (2430030303)")
-P("Section: Soft Computing D")
+def C(text, font, size, bold=False, italic=False, before=0, after=0):
+    p = d.add_paragraph(); p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    p.paragraph_format.space_before = Pt(before); p.paragraph_format.space_after = Pt(after)
+    r = p.add_run(text); r.font.name = font; r.font.size = Pt(size); r.bold = bold; r.italic = italic
+    r._element.rPr.rFonts.set(qn("w:eastAsia"), font); return p
+
+C("A Project Report", "Arial", 14, bold=True, before=30, after=14)
+C("on", "Calibri", 11, italic=True, after=14)
+C("Detection of Alphanumeric Handwritten Values using Fuzzy Logic", "Arial", 16, bold=True, after=16)
+p = C("carried out as part of the ", "Calibri", 11, italic=True, after=14)
+for txt, b in (("Soft Computing Techniques (INT3141)", True), (" Submitted", False)):
+    r = p.add_run(txt); r.font.name = "Calibri"; r.font.size = Pt(11); r.italic = True; r.bold = b
+C("by", "Calibri", 11, after=14)
+C("Abhijay Shrivastava", "Times New Roman", 12, bold=True)
+C("2430030333", "Times New Roman", 12, bold=True, after=10)
+C("Aarush Dayal", "Times New Roman", 12, bold=True)
+C("2430030303", "Times New Roman", 12, bold=True, after=10)
+C("Section: Soft Computing D", "Times New Roman", 12, bold=True, after=36)
+C("in partial fulfilment for the award of the degree of", "Calibri", 11, italic=True, after=24)
+C("Bachelor of Technology", "Calibri", 12, bold=True, after=14)
+C("in", "Calibri", 11, after=10)
+C("Information Technology", "Calibri", 12, bold=True, after=10)
+d.add_paragraph().alignment = WD_ALIGN_PARAGRAPH.CENTER
+d.paragraphs[-1].add_run().add_picture("report/assets/logo.png", width=Inches(3.2))
+C("Department of Information Technology", "Times New Roman", 12, bold=True, before=14, after=14)
+C("MANIPAL UNIVERSITY JAIPUR", "Times New Roman", 12, bold=True)
+C("RAJASTHAN, INDIA", "Times New Roman", 12, bold=True, after=18)
+C("Oct 2026", "Times New Roman", 12, bold=True)
+
 LINK = "https://github.com/Abhijay09/Softcomputing-project"
-p_ = d.add_paragraph("Code repository: ")
+p_ = d.add_paragraph("Code repository: "); p_.paragraph_format.page_break_before = True
 rid = d.part.relate_to(LINK, "http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink", is_external=True)
 h = OxmlElement("w:hyperlink"); h.set(qn("r:id"), rid)
 r_ = OxmlElement("w:r"); rpr = OxmlElement("w:rPr")
