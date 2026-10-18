@@ -3,6 +3,8 @@ import json
 from docx import Document
 from docx.shared import Pt, Inches
 from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.oxml import OxmlElement
+from docx.oxml.ns import qn
 
 R = json.load(open("docs/results.json"))
 B = R["reliability_buckets"]
@@ -31,8 +33,14 @@ P("INT3141 – Soft Computing Techniques  |  Project Submission (Intermediate)",
 P("Manipal University Jaipur, Department of Information Technology, B.Tech IT, V Sem, 2026-27")
 P("Team members: Abhijay Shrivastava (2430030333), Aarush Dayal (2430030303)")
 P("Section: Soft Computing D")
-P("Course coordinator: Dr. Sulabh Bansal")
-P("Code repository: https://github.com/Abhijay09/Softcomputing-project")
+LINK = "https://github.com/Abhijay09/Softcomputing-project"
+p_ = d.add_paragraph("Code repository: ")
+rid = d.part.relate_to(LINK, "http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink", is_external=True)
+h = OxmlElement("w:hyperlink"); h.set(qn("r:id"), rid)
+r_ = OxmlElement("w:r"); rpr = OxmlElement("w:rPr")
+u = OxmlElement("w:u"); u.set(qn("w:val"), "single"); col = OxmlElement("w:color"); col.set(qn("w:val"), "0563C1")
+rpr.append(col); rpr.append(u); r_.append(rpr)
+t_ = OxmlElement("w:t"); t_.text = LINK; r_.append(t_); h.append(r_); p_._p.append(h)
 
 H("1. Introduction")
 P("Handwritten character recognition is one of the application areas named in the course hand-out. Handwriting is "
