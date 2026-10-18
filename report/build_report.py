@@ -7,6 +7,7 @@ from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 
 R = json.load(open("docs/results.json"))
+E = json.load(open("docs/experiments.json"))
 B = R["reliability_buckets"]
 d = Document()
 d.styles["Normal"].font.name = "Calibri"; d.styles["Normal"].font.size = Pt(11)
@@ -83,7 +84,7 @@ EQ("f_{k,r}(x) = ( Π_j μ_j(x_j) )^{1/177} = exp( −(1/177) Σ_j (x_j − c_j)
 P("Rules of the same class are combined with OR = max, and the class membership is μ_k(x) = max_r f_{k,r}(x). "
   "Defuzzification (maximum-membership): ĉ = argmax_k μ_k(x). Strength s = μ_ĉ(x); gap γ = μ_ĉ(x) − (second largest μ_k(x)).")
 P("Step 4 – Reliability controller (Mamdani). Inputs s ∈ [0,1] and γ ∈ [0,1] are fuzzified with triangular sets "
-  "(Figure 3), nine IF-THEN rules (e.g. IF strength is HIGH AND gap is LARGE THEN reliability is HIGH) are "
+  "(Figure 4), nine IF-THEN rules (e.g. IF strength is HIGH AND gap is LARGE THEN reliability is HIGH) are "
   "evaluated with AND = min, clipped outputs are joined with max, and the centroid of the result gives ρ ∈ [0,100].")
 H("2.4 Objective and performance measures", 2)
 P("Find the rule parameters that maximise top-1 accuracy Acc = (1/N) Σ [ĉ(x_i) = y_i] on a held-out test set, and "
@@ -99,35 +100,51 @@ FIG("docs/figs/blocks.png", 6.5, "Figure 1: System block diagram")
 H("3.1 Dataset", 2)
 P("EMNIST-balanced (Cohen et al., 2017): 112,800 training and 18,800 test images, 28×28, 47 classes with equal "
   "numbers of samples. It is derived from NIST handwriting and is the letters-and-digits extension of MNIST.")
+FIG("docs/figs/samples.png", 5.6, "Figure 2: EMNIST samples. Each row is one character class written by different people, so the same character varies a lot in shape and thickness.")
 H("3.2 Learning the fuzzy rules with fuzzy c-means", 2)
 P("For each class, its training feature vectors are clustered by fuzzy c-means (FCM, fuzzifier 2, 4 clusters). Unlike "
   "k-means, every sample belongs to every cluster with a degree u_{ik} ∈ [0,1], Σ_k u_{ik} = 1. FCM repeats two steps: "
   "(a) c_k = Σ u_{ik}² x_i / Σ u_{ik}²; (b) u_{ik} = 1 / Σ_l (d_{ik}/d_{il})². Each cluster becomes one rule: its centre "
   "gives c_j and the membership-weighted standard deviation gives σ_j. A floor of 0.3 × the overall standard deviation of "
-  "feature j is applied, so a rule is never unrealistically narrow. The reason for several rules per class is that one "
-  "letter has several writing styles (e.g. 4 vs. open-top 4, 7 with or without a bar).")
+  "feature j is applied, so a rule is never unrealistically narrow. The idea behind several rules per class is that one "
+  "letter has several writing styles (e.g. 4 vs. open-top 4, 7 with or without a bar). Section 4.2 measures how much this actually helps.")
+FIG("docs/figs/rules_A.png", 5.0, "Figure 3: the four fuzzy rules learned for the letter A (ink-zone part of each rule centre). The four rules turn out to be very similar to each other, which matches the experiment in Section 4.2 where extra rules help only a little.")
 H("3.3 Reliability fuzzy controller", 2)
 TABLE([["Strength \\ Gap", "SMALL", "MEDIUM", "LARGE"], ["LOW", "LOW", "LOW", "MEDIUM"], ["MEDIUM", "LOW", "MEDIUM", "HIGH"], ["HIGH", "MEDIUM", "HIGH", "HIGH"]])
-FIG("docs/figs/fuzzy_sets.png", 6.5, "Figure 2/3: membership functions of the reliability controller and the distribution of ρ on the test set")
+FIG("docs/figs/fuzzy_sets.png", 6.5, "Figure 4: membership functions of the reliability controller and the distribution of ρ on the test set")
 H("3.4 Camera application", 2)
 P("A Tkinter desktop application reads frames with OpenCV, runs the pipeline of Figure 1 about 6 times per second, and "
   "draws a box around each character, coloured green/amber/red by reliability level (≥65 / 35–65 / <35 %). The side "
   "panel shows the detected text, the average reliability bar, and for each character the three best classes with their "
   "membership values. Buttons: Freeze/Resume, Save snapshot, Open image…, Switch camera.")
-FIG("docs/figs/pipeline.png", 6.5, "Figure 4: pipeline on a sample image (characters taken from the EMNIST test set and placed on a paper-like background)")
+FIG("docs/figs/app_window.png", 6.2, "Figure 5: the Tkinter application reading a still image (Open image… mode). In camera mode the left panel shows the live feed instead. Box colour = reliability level; the panel on the right lists the three best classes and their membership for each character.")
+FIG("docs/figs/pipeline.png", 6.5, "Figure 6: pipeline on a sample image (characters taken from the EMNIST test set and placed on a paper-like background)")
 
 H("4. Results (progress till date)")
+H("4.1 Accuracy and reliability", 2)
 TABLE([["Measure", "Value"], ["Top-1 accuracy (18,800 test images, 47 classes)", f"{R['top1']:.1%}"],
        ["Top-3 accuracy", f"{R['top3']:.1%}"], ["Number of fuzzy rules", R["rules"]], ["Random-guess baseline", "2.1 %"]])
 P("Does the reliability value mean anything? Test samples grouped by the reliability the controller assigned:")
 TABLE([["Reliability group", "Samples", "Accuracy in group"]] + [[k, v["samples"], f"{v['accuracy']:.1%}"] for k, v in B.items()])
 P("Accuracy rises from the LOW to the HIGH group, so ρ is a useful warning: when the fuzzy controller says HIGH the "
   "reading is right about nine times out of ten.")
-FIG("docs/figs/confusion.png", 5.2, "Figure 5: confusion matrix")
-FIG("docs/figs/per_class.png", 6.3, "Figure 6: accuracy per class")
+FIG("docs/figs/confusion.png", 5.2, "Figure 7: confusion matrix")
+FIG("docs/figs/per_class.png", 6.3, "Figure 8: accuracy per class")
 P("Observations. Most errors are between look-alike shapes: 9/q/g, F/f, 1/I/L, O/0, e/a and 3/B (the most frequent confusions in our test run). This is the inherent imprecision that motivated the fuzzy approach; the top-3 "
   "accuracy shows that the correct character is almost always among the top candidates.")
 
+H("4.2 Experiments: what actually matters?", 2)
+P("To understand which design choices matter, we changed one thing at a time and measured test accuracy.")
+TABLE([["Rules per class", "Test accuracy"]] + [[k, f"{v:.1%}"] for k, v in E["rules"].items()])
+TABLE([["Features used (4 rules per class)", "Test accuracy"]] + [[k, f"{v:.1%}"] for k, v in E["features"].items()])
+FIG("docs/figs/experiments.png", 6.3, "Figure 9: effect of the number of rules and of the feature type")
+P("Findings. (1) The stroke-direction features carry most of the information: using them alone gives "
+  f"{E['features']['stroke directions only (128)']:.1%}, while the ink zones alone give only {E['features']['ink zones only (49)']:.1%}. "
+  "Adding the ink zones to the directions improves the result slightly. (2) More rules per class helps only a little "
+  f"({E['rules']['1']:.1%} with one rule, {E['rules']['8']:.1%} with eight), so the limit is the feature description and the "
+  "simple Gaussian membership form, not the number of writing styles. We kept 4 rules per class as a compromise between "
+  "accuracy and the size of the rule base. These findings point to where improvement should come from next (better "
+  "features, tuned membership widths).")
 H("5. Limitations and future work")
 BL(["Accuracy (about 66 %) is lower than a trained neural network would reach (CO3). The fuzzy rules are deliberately simple and "
     "explainable: every decision can be traced back to rules and membership values.",
