@@ -85,11 +85,9 @@ P("Course outcomes addressed: INT3141.2 (apply fuzzy logic and reasoning) and IN
 
 H("2. Formal Problem Description")
 H("2.1 Input", 2)
-P("A video frame is a colour image with H × W pixels (480 × 640 for the laptop camera), i.e. a function")
-EQI("frame")
+P("A video frame is a colour image of H × W pixels (480 × 640 for the laptop camera), each pixel having a red, green and blue value from 0 to 255. ")
 P("The frame contains n ≥ 0 handwritten characters written in dark ink on a light background. For training we use a "
-  "labelled set of N grey-scale character images g of size 28 × 28, each with a label y from the alphabet A:")
-EQI("dataset")
+  "labelled set of N grey-scale character images g of size 28 × 28, each with a label y from the alphabet A.")
 P("Alphabet: A is the set of 47 EMNIST-balanced classes – the digits 0–9, the upper-case letters A–Z (some letters "
   "that look the same in both cases, e.g. C/c, O/o, S/s, are one class) and the lower-case letters a, b, d, e, f, g, h, n, q, r, t.")
 H("2.2 Output", 2)
@@ -106,8 +104,7 @@ P("Step 1 – Segmentation. The frame is converted to grey, blurred, and thresho
 P("Step 2 – Feature vector. A feature map φ turns the 28×28 image into 177 numbers. The first 49 are the "
   "average ink in each 4×4 block (ink-density zones); the other 128 are stroke-direction values: the image is cut "
   "into 4×4 cells and in each cell the gradient strength is added up in 8 orientation bins (0°–180°), then the whole "
-  "vector is scaled to unit length.")
-EQI("features")
+  "vector is scaled to unit length. Written as x = φ(g): 28×28 image in, 177 numbers out.")
 P("Step 3 – Fuzzy rule base. For every class k there are 4 fuzzy rules R(k, r) (188 rules in total):")
 EQI("rule")
 P("Each antecedent “x is ~c” is a Gaussian membership function, where c is the typical value of that feature and σ says how much it varies (every rule has its own c and σ for each of the 177 features):")
@@ -118,17 +115,15 @@ EQI("firing")
 P("Rules of the same class are combined with OR = max, giving the membership of the character in class k. "
   "Defuzzification is by maximum membership: the class with the largest membership is the answer ĉ.")
 EQI("classmem")
-P("The strength s is the winning membership, and the gap γ is how far it is ahead of the runner-up:")
-EQI("strength")
+P("The strength s is the winning membership, and the gap γ = s − (runner-up membership) shows how far ahead it is.")
 P("Step 4 – Reliability controller (Mamdani). Inputs s and γ (both in [0,1]) are fuzzified with triangular sets "
   "(Figure 4), nine IF-THEN rules (e.g. IF strength is HIGH AND gap is LARGE THEN reliability is HIGH) are "
   "evaluated with AND = min, clipped outputs are joined with max, and the centroid of the aggregated output set "
   "gives the reliability ρ between 0 and 100:")
 EQI("centroid")
 H("2.4 Objective and performance measures", 2)
-P("Find the rule parameters that maximise the top-1 accuracy on a held-out test set,")
-EQI("accuracy")
-P("and make ρ meaningful: samples with higher ρ should be recognised correctly more often. Secondary measure: top-3 "
+P("Find the rule parameters that maximise the top-1 accuracy (correct readings ÷ number of test images) on a held-out test set, "
+  "and make ρ meaningful: samples with higher ρ should be recognised correctly more often. Secondary measure: top-3 "
   "accuracy (true class among the three largest class memberships).")
 H("2.5 Assumptions and scope", 2)
 BL(["Dark ink on light paper, one or more lines of separate (non-cursive) characters, reasonably large and well lit.",
@@ -147,7 +142,6 @@ P("For each class, its training feature vectors are clustered by fuzzy c-means (
   "FCM repeats two steps until it settles: (a) each cluster centre is the average of the samples weighted by u², "
   "(b) each membership u is recomputed from the distances d of the sample to the cluster centres.")
 EQI("fcm_c")
-EQI("fcm_u")
 P("Each cluster becomes one rule: its centre gives c and the membership-weighted standard deviation gives σ. A floor of 0.3 × the overall standard deviation of "
   "that feature is applied, so a rule is never unrealistically narrow. The idea behind several rules per class is that one "
   "letter has several writing styles (e.g. 4 vs. open-top 4, 7 with or without a bar). Section 4.2 measures how much this actually helps.")
