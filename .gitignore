@@ -1,0 +1,8 @@
+data/
+captures/
+__pycache__/
+.venv/
+*.pdf.bak
+INT3141*.pdf
+models/test_pred.npy
+VIVA_NOTES.md
