@@ -29,7 +29,8 @@ def TABLE(rows, header=True):
 t = d.add_heading("Detection of Alphanumeric Handwritten Values using Fuzzy Logic", 0)
 P("INT3141 – Soft Computing Techniques  |  Project Submission (Intermediate)", bold=True)
 P("Manipal University Jaipur, Department of Information Technology, B.Tech IT, V Sem, 2026-27")
-P("Team members: <Name 1 (Reg. No.)>, <Name 2 (Reg. No.)>, <Name 3 (Reg. No.)>")
+P("Team members: Abhijay Shrivastava (2430030333), Aarush Dayal (2430030303)")
+P("Section: Soft Computing D")
 P("Course coordinator: Dr. Sulabh Bansal")
 P("Code repository: https://github.com/Abhijay09/Softcomputing-project")
 
