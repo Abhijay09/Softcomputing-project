@@ -157,7 +157,7 @@ P("A Tkinter desktop application reads frames with OpenCV, runs the pipeline of 
 FIG("docs/figs/app_window.png", 6.2, "Figure 5: the Tkinter application reading a still image (Open image… mode). In camera mode the left panel shows the live feed instead. Box colour = reliability level; the panel on the right lists the three best classes and their membership for each character.")
 FIG("docs/figs/pipeline.png", 6.5, "Figure 6: pipeline on a sample image (characters taken from the EMNIST test set and placed on a paper-like background)")
 
-H("4. Results (progress till date)")
+H("4. Results (progress till date)"); d.paragraphs[-1].paragraph_format.page_break_before = True
 H("4.1 Accuracy and reliability", 2)
 TABLE([["Measure", "Value"], ["Top-1 accuracy (18,800 test images, 47 classes)", f"{R['top1']:.1%}"],
        ["Top-3 accuracy", f"{R['top3']:.1%}"], ["Number of fuzzy rules", R["rules"]], ["Random-guess baseline", "2.1 %"]])
