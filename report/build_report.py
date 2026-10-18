@@ -31,7 +31,7 @@ P("INT3141 – Soft Computing Techniques  |  Project Submission (Intermediate)",
 P("Manipal University Jaipur, Department of Information Technology, B.Tech IT, V Sem, 2026-27")
 P("Team members: <Name 1 (Reg. No.)>, <Name 2 (Reg. No.)>, <Name 3 (Reg. No.)>")
 P("Course coordinator: Dr. Sulabh Bansal")
-P("Code repository: <GitHub link>")
+P("Code repository: https://github.com/Abhijay09/Softcomputing-project")
 
 H("1. Introduction")
 P("Handwritten character recognition is one of the application areas named in the course hand-out. Handwriting is "
