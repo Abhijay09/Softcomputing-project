@@ -19,6 +19,11 @@ def BL(items):
     for i in items: d.add_paragraph(i, style="List Bullet")
 def EQ(t):
     p = d.add_paragraph(); p.alignment = WD_ALIGN_PARAGRAPH.CENTER; r = p.add_run(t); r.italic = True; r.font.name = "Cambria Math"
+def EQI(name):
+    from PIL import Image
+    w = Image.open(f'docs/eq/{name}.png').width
+    d.add_picture(f'docs/eq/{name}.png', width=Inches(min(6.2, w / 300 * 0.6))); d.paragraphs[-1].alignment = WD_ALIGN_PARAGRAPH.CENTER
+
 def FIG(path, w, cap):
     d.add_picture(path, width=Inches(w)); d.paragraphs[-1].alignment = WD_ALIGN_PARAGRAPH.CENTER
     c = d.add_paragraph(cap); c.alignment = WD_ALIGN_PARAGRAPH.CENTER; c.runs[0].italic = True
@@ -80,41 +85,51 @@ P("Course outcomes addressed: INT3141.2 (apply fuzzy logic and reasoning) and IN
 
 H("2. Formal Problem Description")
 H("2.1 Input", 2)
-P("A video frame is a function I : {0,…,H−1} × {0,…,W−1} → {0,…,255}³ (colour image, H×W pixels; 480×640 for the "
-  "laptop camera). The frame contains n ≥ 0 handwritten characters written in dark ink on a light background. "
-  "Training data: a labelled set D = {(g_i, y_i)}, where g_i ∈ [0,1]^{28×28} is a grey-scale character image and "
-  "y_i ∈ A is its label.")
+P("A video frame is a colour image with H × W pixels (480 × 640 for the laptop camera), i.e. a function")
+EQI("frame")
+P("The frame contains n ≥ 0 handwritten characters written in dark ink on a light background. For training we use a "
+  "labelled set of N grey-scale character images g of size 28 × 28, each with a label y from the alphabet A:")
+EQI("dataset")
 P("Alphabet: A is the set of 47 EMNIST-balanced classes – the digits 0–9, the upper-case letters A–Z (some letters "
   "that look the same in both cases, e.g. C/c, O/o, S/s, are one class) and the lower-case letters a, b, d, e, f, g, h, n, q, r, t.")
 H("2.2 Output", 2)
-P("An ordered sequence of n pairs ((c₁, ρ₁), …, (c_n, ρ_n)) where c_k ∈ A is the recognised character at position k "
-  "(reading order: left to right, top to bottom) and ρ_k ∈ [0,100] is its fuzzy reliability in percent. The text "
-  "output is the string s = c₁c₂…c_n with a space inserted where the horizontal gap between two characters is more "
+P("An ordered sequence of n pairs, where c is the recognised character at position k (reading order: left to right, top to "
+  "bottom) and ρ is its fuzzy reliability in percent:")
+EQI("output")
+P("The text output is the recognised characters joined into one string, with a space inserted where the horizontal gap between two characters is more "
   "than 1.2 × the median character width.")
 H("2.3 Mathematical formulation", 2)
 P("Step 1 – Segmentation. The frame is converted to grey, blurred, and thresholded with a local (adaptive) threshold, "
-  "giving a binary ink mask M(x,y) ∈ {0,1}. Each 8-connected component of M whose area and height are within limits is "
-  "a character candidate with bounding box b_k. Each candidate is resized to fit a 20×20 box (aspect ratio kept) and "
-  "centred in a 28×28 image g_k – the same format as the training data.")
-P("Step 2 – Feature vector. A feature map φ : [0,1]^{28×28} → [0,1]^{177} gives x = φ(g). The first 49 numbers are the "
+  "giving a binary ink mask. Each 8-connected component of the mask whose area and height are within limits is "
+  "a character candidate with a bounding box. Each candidate is resized to fit a 20×20 box (aspect ratio kept) and "
+  "centred in a 28×28 image g – the same format as the training data.")
+P("Step 2 – Feature vector. A feature map φ turns the 28×28 image into 177 numbers. The first 49 are the "
   "average ink in each 4×4 block (ink-density zones); the other 128 are stroke-direction values: the image is cut "
   "into 4×4 cells and in each cell the gradient strength is added up in 8 orientation bins (0°–180°), then the whole "
   "vector is scaled to unit length.")
-P("Step 3 – Fuzzy rule base. For every class k there are m = 4 fuzzy rules R_{k,r} (188 rules in total):")
-EQ("R_{k,r}:  IF x₁ is ~c₁ AND x₂ is ~c₂ AND … AND x₁₇₇ is ~c₁₇₇  THEN class = k")
-P("Each antecedent “x_j is ~c_j” is a Gaussian membership function μ_j(x_j) = exp(−(x_j − c_j)² / (2σ_j²)). "
-  "The centres c and widths σ of the rules come from fuzzy c-means clustering (Section 3.2). AND is implemented as "
+EQI("features")
+P("Step 3 – Fuzzy rule base. For every class k there are 4 fuzzy rules R(k, r) (188 rules in total):")
+EQI("rule")
+P("Each antecedent “x is ~c” is a Gaussian membership function, where c is the typical value of that feature and σ says how much it varies (every rule has its own c and σ for each of the 177 features):")
+EQI("gauss")
+P("The centres c and widths σ of the rules come from fuzzy c-means clustering (Section 3.2). AND is implemented as "
   "the geometric mean of the memberships, so the firing strength of a rule is")
-EQ("f_{k,r}(x) = ( Π_j μ_j(x_j) )^{1/177} = exp( −(1/177) Σ_j (x_j − c_j)² / (2σ_j²) )")
-P("Rules of the same class are combined with OR = max, and the class membership is μ_k(x) = max_r f_{k,r}(x). "
-  "Defuzzification (maximum-membership): ĉ = argmax_k μ_k(x). Strength s = μ_ĉ(x); gap γ = μ_ĉ(x) − (second largest μ_k(x)).")
-P("Step 4 – Reliability controller (Mamdani). Inputs s ∈ [0,1] and γ ∈ [0,1] are fuzzified with triangular sets "
+EQI("firing")
+P("Rules of the same class are combined with OR = max, giving the membership of the character in class k. "
+  "Defuzzification is by maximum membership: the class with the largest membership is the answer ĉ.")
+EQI("classmem")
+P("The strength s is the winning membership, and the gap γ is how far it is ahead of the runner-up:")
+EQI("strength")
+P("Step 4 – Reliability controller (Mamdani). Inputs s and γ (both in [0,1]) are fuzzified with triangular sets "
   "(Figure 4), nine IF-THEN rules (e.g. IF strength is HIGH AND gap is LARGE THEN reliability is HIGH) are "
-  "evaluated with AND = min, clipped outputs are joined with max, and the centroid of the result gives ρ ∈ [0,100].")
+  "evaluated with AND = min, clipped outputs are joined with max, and the centroid of the aggregated output set "
+  "gives the reliability ρ between 0 and 100:")
+EQI("centroid")
 H("2.4 Objective and performance measures", 2)
-P("Find the rule parameters that maximise top-1 accuracy Acc = (1/N) Σ [ĉ(x_i) = y_i] on a held-out test set, and "
-  "make ρ meaningful: samples with higher ρ should be recognised correctly more often. Secondary measure: top-3 "
-  "accuracy (true class among the three largest μ_k).")
+P("Find the rule parameters that maximise the top-1 accuracy on a held-out test set,")
+EQI("accuracy")
+P("and make ρ meaningful: samples with higher ρ should be recognised correctly more often. Secondary measure: top-3 "
+  "accuracy (true class among the three largest class memberships).")
 H("2.5 Assumptions and scope", 2)
 BL(["Dark ink on light paper, one or more lines of separate (non-cursive) characters, reasonably large and well lit.",
     "Only the 47 classes above; no punctuation. Touching characters are not split.",
@@ -128,10 +143,13 @@ P("EMNIST-balanced (Cohen et al., 2017): 112,800 training and 18,800 test images
 FIG("docs/figs/samples.png", 5.6, "Figure 2: EMNIST samples. Each row is one character class written by different people, so the same character varies a lot in shape and thickness.")
 H("3.2 Learning the fuzzy rules with fuzzy c-means", 2)
 P("For each class, its training feature vectors are clustered by fuzzy c-means (FCM, fuzzifier 2, 4 clusters). Unlike "
-  "k-means, every sample belongs to every cluster with a degree u_{ik} ∈ [0,1], Σ_k u_{ik} = 1. FCM repeats two steps: "
-  "(a) c_k = Σ u_{ik}² x_i / Σ u_{ik}²; (b) u_{ik} = 1 / Σ_l (d_{ik}/d_{il})². Each cluster becomes one rule: its centre "
-  "gives c_j and the membership-weighted standard deviation gives σ_j. A floor of 0.3 × the overall standard deviation of "
-  "feature j is applied, so a rule is never unrealistically narrow. The idea behind several rules per class is that one "
+  "k-means, every sample belongs to every cluster with a degree u between 0 and 1, and the degrees of one sample add up to 1. "
+  "FCM repeats two steps until it settles: (a) each cluster centre is the average of the samples weighted by u², "
+  "(b) each membership u is recomputed from the distances d of the sample to the cluster centres.")
+EQI("fcm_c")
+EQI("fcm_u")
+P("Each cluster becomes one rule: its centre gives c and the membership-weighted standard deviation gives σ. A floor of 0.3 × the overall standard deviation of "
+  "that feature is applied, so a rule is never unrealistically narrow. The idea behind several rules per class is that one "
   "letter has several writing styles (e.g. 4 vs. open-top 4, 7 with or without a bar). Section 4.2 measures how much this actually helps.")
 FIG("docs/figs/rules_A.png", 5.0, "Figure 3: the four fuzzy rules learned for the letter A (ink-zone part of each rule centre). The four rules turn out to be very similar to each other, which matches the experiment in Section 4.2 where extra rules help only a little.")
 H("3.3 Reliability fuzzy controller", 2)
