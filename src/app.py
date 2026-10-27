@@ -7,13 +7,13 @@ from PIL import Image, ImageTk
 
 sys.path.insert(0, os.path.dirname(__file__))
 from data import label_chars
-from fuzzy_model import FuzzyClassifier
-from segment import recognise, to_text
+from classifier import CharClassifier
+from segment import recognise, to_text, Tracker
 
 ROOT = os.path.join(os.path.dirname(__file__), "..")
 BG, PANEL, FG, DIM, ACCENT = "#0f1117", "#181b24", "#e8eaf0", "#8a90a2", "#7c5cff"
 LEVEL_COL = {"HIGH": "#3ddc97", "MEDIUM": "#ffb454", "LOW": "#ff5c7a"}   # also used as BGR below
-VIDEO_W, VIDEO_H = 640, 480
+VIDEO_W, VIDEO_H = 640, 480        # size of the picture shown in the window
 
 
 def bgr(hexcol):
@@ -25,7 +25,9 @@ class App:
         self.root = root
         root.title("Fuzzy Handwriting Reader")
         root.configure(bg=BG)
-        self.model = FuzzyClassifier.load(os.path.join(ROOT, "models", "fuzzy_model.npz"))
+        self.model = CharClassifier()
+        self.tracker = Tracker()
+        self.context = tk.BooleanVar(value=True)
         self.names = label_chars()
         self.cam_index, self.cap, self.frozen, self.dirty, self.current, self.shown = cam_index, None, False, False, None, None
         self._build()
@@ -47,6 +49,7 @@ class App:
         self._btn(bar, "Save snapshot", self.save_snapshot)
         self._btn(bar, "Open image…", self.open_image)
         self._btn(bar, "Switch camera", self.next_camera)
+        tk.Checkbutton(bar, text="Context rules", variable=self.context, bg=BG, fg=FG, selectcolor="#262a36", activebackground=BG, activeforeground=FG, highlightthickness=0, command=self._redo).pack(side="left", padx=(8, 0))
         self.status = tk.Label(left, text="", bg=BG, fg=DIM, font=("Helvetica", 9)); self.status.pack(anchor="w")
 
         right = tk.Frame(self.root, bg=PANEL, width=380); right.grid(row=0, column=1, padx=(0, 16), pady=16, sticky="ns")
@@ -71,11 +74,15 @@ class App:
     def open_camera(self):
         if self.cap: self.cap.release()
         self.cap = cv2.VideoCapture(self.cam_index)
-        self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, VIDEO_W); self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, VIDEO_H)
+        self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280); self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)   # sharper strokes
+        self.tracker.reset()
         self.status.config(text=f"camera {self.cam_index}" if self.cap.isOpened() else f"camera {self.cam_index} not available - use 'Open image…'")
 
     def next_camera(self):
         self.cam_index = (self.cam_index + 1) % 4; self.open_camera()
+
+    def _redo(self):
+        self.dirty = True
 
     def toggle_freeze(self):
         self.frozen = not self.frozen
@@ -102,10 +109,12 @@ class App:
             if ok: self.current = f
         if getattr(self, "current", None) is not None and (not self.frozen or self.dirty):
             self.dirty = False
-            self.last_result = recognise(self.current, self.model, self.names)
+            self.last_result = recognise(self.current, self.model, self.names, self.context.get(),
+                                         None if self.frozen else self.tracker)
             self.shown = self.draw(self.current, self.last_result)
             self.update_panel(self.last_result)
-            img = cv2.cvtColor(self.shown, cv2.COLOR_BGR2RGB)
+            h, w = self.shown.shape[:2]
+            img = cv2.cvtColor(cv2.resize(self.shown, (VIDEO_W, round(h * VIDEO_W / w))), cv2.COLOR_BGR2RGB)
             self.photo = ImageTk.PhotoImage(Image.fromarray(img))
             self.video.config(image=self.photo, width=img.shape[1], height=img.shape[0])
         self.root.after(150, self.tick)
@@ -115,8 +124,9 @@ class App:
         for line in lines:
             for c in line:
                 x, y, w, h = c["box"]; col = bgr(LEVEL_COL[c["level"]])
-                cv2.rectangle(out, (x, y), (x + w, y + h), col, 2)
-                cv2.putText(out, c["char"], (x, max(18, y - 6)), cv2.FONT_HERSHEY_SIMPLEX, 0.8, col, 2, cv2.LINE_AA)
+                k = max(1.0, out.shape[1] / 640)
+                cv2.rectangle(out, (x, y), (x + w, y + h), col, round(2 * k))
+                cv2.putText(out, c["char"], (x, max(18, y - 6)), cv2.FONT_HERSHEY_SIMPLEX, 0.8 * k, col, round(2 * k), cv2.LINE_AA)
         return out
 
     def update_panel(self, lines):
