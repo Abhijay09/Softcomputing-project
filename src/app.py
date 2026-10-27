@@ -9,6 +9,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 from data import label_chars
 from classifier import CharClassifier
 from segment import recognise, to_text, Tracker
+import demo
 
 ROOT = os.path.join(os.path.dirname(__file__), "..")
 BG, PANEL, FG, DIM, ACCENT = "#0f1117", "#181b24", "#e8eaf0", "#8a90a2", "#7c5cff"
@@ -21,10 +22,11 @@ def bgr(hexcol):
 
 
 class App:
-    def __init__(self, root, cam_index=0, image=None):
+    def __init__(self, root, cam_index=0, image=None, demo_mode=False):
         self.root = root
-        root.title("Fuzzy Handwriting Reader")
+        root.title("Fuzzy Handwriting Reader" + ("  [DEMO MODE - simulated output]" if demo_mode else ""))
         root.configure(bg=BG)
+        self.demo_mode = demo_mode
         self.model = CharClassifier()
         self.tracker = Tracker()
         self.context = tk.BooleanVar(value=True)
@@ -165,9 +167,13 @@ class App:
             if ok: self.current = f
         if getattr(self, "current", None) is not None and (not self.frozen or self.dirty):
             self.dirty = False
-            self.last_result = recognise(self.current, self.model, self.names, self.context.get(),
+            self.last_result = (demo.demo_recognise if self.demo_mode else recognise)(self.current, self.model, self.names, self.context.get(),
                                          None if self.frozen else self.tracker, self.roi, self.mode.get())
             self.shown = self.draw(self.current, self.last_result)
+            if self.demo_mode:
+                kk = max(1.0, self.shown.shape[1] / 640)
+                cv2.rectangle(self.shown, (0, self.shown.shape[0] - round(30 * kk)), (round(330 * kk), self.shown.shape[0]), (0, 0, 0), -1)
+                cv2.putText(self.shown, "DEMO - simulated output", (round(8 * kk), self.shown.shape[0] - round(9 * kk)), cv2.FONT_HERSHEY_SIMPLEX, 0.65 * kk, (60, 160, 255), round(2 * kk), cv2.LINE_AA)
             self.update_panel(self.last_result)
             h, w = self.shown.shape[:2]
             self.scale = w / VIDEO_W
@@ -211,5 +217,9 @@ class App:
 if __name__ == "__main__":
     root = tk.Tk()
     arg = sys.argv[1] if len(sys.argv) > 1 else "0"
-    App(root, int(arg)) if arg.isdigit() else App(root, image=arg)
+    if arg == "--demo":
+        path = os.path.join(ROOT, "docs", "figs", "demo_input.png"); demo.make_demo_image(path)
+        App(root, image=path, demo_mode=True)
+    else:
+        App(root, int(arg)) if arg.isdigit() else App(root, image=arg)
     root.mainloop()
