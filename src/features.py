@@ -5,17 +5,43 @@ import numpy as np
 GRID = 7          # 7x7 zones over a 28x28 image -> 49 features
 
 
+STROKE_TARGET = 0.228      # stroke width / character height measured on EMNIST (distance-transform estimate)
+
+
+def stroke_width(binary):
+    """Rough pen width in pixels: 4 x the average distance from an ink pixel to the paper."""
+    dt = cv2.distanceTransform((binary > 0).astype(np.uint8), cv2.DIST_L2, 3)
+    return 4.0 * dt[binary > 0].mean()
+
+
+def match_pen_thickness(crop):
+    """Thin pen photos look nothing like the training data, so thicken (or thin) the strokes to EMNIST thickness."""
+    size = max(crop.shape)
+    est, want = stroke_width(crop), STROKE_TARGET * size
+    if est < 0.85 * want:
+        k = int(round((want - est) / 1.66)) + 1
+        crop = cv2.dilate(crop, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (k, k)))
+    elif est > 1.35 * want:
+        k = int(round((est - want) / 1.66)) + 1
+        crop = cv2.erode(crop, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (k, k)))
+    return crop
+
+
 def normalize_char(binary):
-    """binary: white ink on black, any size (tight crop). Returns 28x28 float image in [0,1].
-    Same recipe EMNIST/MNIST use: fit into 20x20 keeping aspect, centre in 28x28."""
+    """binary: white ink on black, any size. Returns 28x28 float image in [0,1], same recipe EMNIST/MNIST use:
+    match pen thickness, fit into 20x20 keeping aspect, centre in 28x28."""
     ys, xs = np.nonzero(binary)
     if len(ys) == 0:
         return np.zeros((28, 28), np.float32)
     crop = binary[ys.min():ys.max() + 1, xs.min():xs.max() + 1]
+    crop = cv2.copyMakeBorder(crop, 4, 4, 4, 4, cv2.BORDER_CONSTANT, value=0)
+    crop = match_pen_thickness(crop)
+    ys, xs = np.nonzero(crop)
+    crop = crop[ys.min():ys.max() + 1, xs.min():xs.max() + 1]
     h, w = crop.shape
     s = 20.0 / max(h, w)
     crop = cv2.resize(crop, (max(1, round(w * s)), max(1, round(h * s))), interpolation=cv2.INTER_AREA)
-    crop = cv2.GaussianBlur(crop, (3, 3), 0)           # soft strokes like the training data
+    crop = cv2.GaussianBlur(crop, (3, 3), 0)
     canvas = np.zeros((28, 28), np.float32)
     h, w = crop.shape
     canvas[(28 - h) // 2:(28 - h) // 2 + h, (28 - w) // 2:(28 - w) // 2 + w] = crop / 255.0
