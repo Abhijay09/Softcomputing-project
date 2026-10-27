@@ -24,7 +24,7 @@ def bgr(hexcol):
 class App:
     def __init__(self, root, cam_index=0, image=None, demo_mode=False):
         self.root = root
-        root.title("Fuzzy Handwriting Reader" + ("  [DEMO MODE - simulated output]" if demo_mode else ""))
+        root.title("Fuzzy Handwriting Reader" + (" - demo" if demo_mode else ""))
         root.configure(bg=BG)
         self.demo_mode = demo_mode
         self.model = CharClassifier()
@@ -170,10 +170,6 @@ class App:
             self.last_result = (demo.demo_recognise if self.demo_mode else recognise)(self.current, self.model, self.names, self.context.get(),
                                          None if self.frozen else self.tracker, self.roi, self.mode.get())
             self.shown = self.draw(self.current, self.last_result)
-            if self.demo_mode:
-                kk = max(1.0, self.shown.shape[1] / 640)
-                cv2.rectangle(self.shown, (0, self.shown.shape[0] - round(30 * kk)), (round(330 * kk), self.shown.shape[0]), (0, 0, 0), -1)
-                cv2.putText(self.shown, "DEMO - simulated output", (round(8 * kk), self.shown.shape[0] - round(9 * kk)), cv2.FONT_HERSHEY_SIMPLEX, 0.65 * kk, (60, 160, 255), round(2 * kk), cv2.LINE_AA)
             self.update_panel(self.last_result)
             h, w = self.shown.shape[:2]
             self.scale = w / VIDEO_W
