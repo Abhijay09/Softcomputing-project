@@ -200,7 +200,11 @@ class App:
     def update_panel(self, lines):
         if self.ai_mode: return
         chars = [c for l in lines for c in l]
-        self.text.config(text=to_text(lines) if chars else "—")
+        if self.demo_mode:
+            from handwriting_sample import LINES
+            self.text.config(text="\n".join(LINES), font=("Courier", 14, "bold"), wraplength=350)
+        else:
+            self.text.config(text=to_text(lines) if chars else "—")
         avg = sum(c["reliability"] for c in chars) / len(chars) if chars else 0
         self.rel_canvas.delete("all")
         lvl = "HIGH" if avg >= 65 else "MEDIUM" if avg >= 35 else "LOW"
