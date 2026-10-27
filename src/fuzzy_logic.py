@@ -35,8 +35,15 @@ def fuzzy_c_means(X, c, m=2.0, iters=40, seed=0):
 # Inputs : strength  = membership of the winning character      (0..1)
 #          gap       = strength(winner) - strength(runner-up)   (0..1)
 # Output : reliability (0..100 %)
-IN_SETS = {"LOW": (-0.4, 0.0, 0.4), "MEDIUM": (0.1, 0.4, 0.7), "HIGH": (0.4, 0.8, 1.2)}
-GAP_SETS = {"SMALL": (-0.1, 0.0, 0.1), "MEDIUM": (0.03, 0.1, 0.2), "LARGE": (0.1, 0.25, 1.0)}
+# Two presets: the input sets are placed to match the scores of each classifier ("rules" = fuzzy rule base,
+# "mlp" = neural network memberships, which are much more spread out between 0 and 1).
+PRESETS = {
+    "rules": ({"LOW": (-0.4, 0.0, 0.4), "MEDIUM": (0.1, 0.4, 0.7), "HIGH": (0.4, 0.8, 1.2)},
+              {"SMALL": (-0.1, 0.0, 0.1), "MEDIUM": (0.03, 0.1, 0.2), "LARGE": (0.1, 0.25, 1.0)}),
+    "mlp": ({"LOW": (-0.5, 0.0, 0.55), "MEDIUM": (0.35, 0.65, 0.92), "HIGH": (0.75, 1.0, 1.5)},
+            {"SMALL": (-0.4, 0.0, 0.35), "MEDIUM": (0.1, 0.45, 0.8), "LARGE": (0.55, 1.0, 1.6)}),
+}
+IN_SETS, GAP_SETS = PRESETS["mlp"]
 OUT_SETS = {"LOW": (-40, 0, 40), "MEDIUM": (20, 50, 80), "HIGH": (60, 100, 140)}
 # rule table: (strength, gap) -> reliability
 RULES = {("LOW", "SMALL"): "LOW", ("LOW", "MEDIUM"): "LOW", ("LOW", "LARGE"): "MEDIUM",
@@ -45,10 +52,11 @@ RULES = {("LOW", "SMALL"): "LOW", ("LOW", "MEDIUM"): "LOW", ("LOW", "LARGE"): "M
 _Y = np.linspace(0, 100, 201)
 
 
-def reliability(strength, gap):
+def reliability(strength, gap, preset="mlp"):
     """Mamdani inference: min for AND, max to combine rules, centroid defuzzification."""
-    s = {k: float(triangle(strength, *v)) for k, v in IN_SETS.items()}
-    g = {k: float(triangle(gap, *v)) for k, v in GAP_SETS.items()}
+    in_sets, gap_sets = PRESETS[preset]
+    s = {k: float(triangle(strength, *v)) for k, v in in_sets.items()}
+    g = {k: float(triangle(gap, *v)) for k, v in gap_sets.items()}
     agg = np.zeros_like(_Y)
     for (sk, gk), ok in RULES.items():
         fire = min(s[sk], g[gk])                                   # AND = min

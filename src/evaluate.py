@@ -6,7 +6,8 @@ import matplotlib.pyplot as plt
 from data import load, label_chars
 from features import extract
 from fuzzy_model import FuzzyClassifier
-from fuzzy_logic import reliability, triangle, IN_SETS, GAP_SETS, OUT_SETS
+from fuzzy_logic import reliability, triangle, PRESETS, OUT_SETS
+IN_SETS, GAP_SETS = PRESETS["rules"]
 
 os.makedirs("docs/figs", exist_ok=True)
 xte, yte = load("test")
@@ -19,7 +20,7 @@ acc1 = (top1 == yte).mean()
 acc3 = np.mean([yte[i] in model.classes[order[i, :3]] for i in range(len(yte))])
 strength = M[np.arange(len(M)), order[:, 0]]
 gap = strength - M[np.arange(len(M)), order[:, 1]]
-rel = np.array([reliability(s, g) for s, g in zip(strength, gap)])
+rel = np.array([reliability(s, g, "rules") for s, g in zip(strength, gap)])
 correct = top1 == yte
 buckets = {}
 for name, lo, hi in [("LOW (<35)", 0, 35), ("MEDIUM (35-65)", 35, 65), ("HIGH (>=65)", 65, 101)]:
