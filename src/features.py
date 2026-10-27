@@ -37,6 +37,8 @@ def normalize_char(binary):
     crop = cv2.copyMakeBorder(crop, 4, 4, 4, 4, cv2.BORDER_CONSTANT, value=0)
     crop = match_pen_thickness(crop)
     ys, xs = np.nonzero(crop)
+    if len(ys) == 0:
+        return np.zeros((28, 28), np.float32)
     crop = crop[ys.min():ys.max() + 1, xs.min():xs.max() + 1]
     h, w = crop.shape
     s = 20.0 / max(h, w)

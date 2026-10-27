@@ -53,3 +53,14 @@ The context rule adds about 5 points on words that are all digits or all letters
 - No cursive, and characters that touch each other are not split.
 - Some upper/lower case pairs (C/c, O/o, S/s ...) are one class in EMNIST so the app can't tell them apart.
 - The benchmark is fake photos. Real handwriting in your room will be a bit worse.
+
+## Newer bits
+
+- Drag a rectangle on the video to read only that area (right-click or "Clear area" resets).
+- "Read as: digits / letters / auto" - pick digits for numbers like roll numbers, it removes most 0/O, 1/I, 2/Z mix-ups.
+- Works on light strokes on a dark screen too (the polarity is detected automatically).
+- "Read with AI" runs a pretrained handwriting model (TrOCR) on the page line by line. Optional and slow, it needs
+  `pip install torch transformers tiktoken sentencepiece protobuf` and downloads about 1.3 GB the first time. Small or blurry
+  writing comes out badly, it works best on big clear lines.
+- `src/benchmark_print.py` makes printed-text scenes. `src/train_mlp.py` can also train on printed letters from system fonts
+  (that run was not finished, the model in `models/` is the handwriting-only one).

@@ -1,5 +1,5 @@
 """Fuzzy Handwriting Reader - Tkinter app. Point a camera at handwriting; it reads it live."""
-import os, sys, time
+import os, sys, time, threading
 import tkinter as tk
 from tkinter import filedialog
 import cv2
@@ -28,8 +28,11 @@ class App:
         self.model = CharClassifier()
         self.tracker = Tracker()
         self.context = tk.BooleanVar(value=True)
+        self.mode = tk.StringVar(value="auto")
         self.names = label_chars()
         self.cam_index, self.cap, self.frozen, self.dirty, self.current, self.shown = cam_index, None, False, False, None, None
+        self.ai_mode, self.ai_lines, self.ai_busy = False, [], False
+        self.roi, self.drag, self.scale = None, None, 1.0          # area to read (frame pixels), mouse drag, frame px per shown px
         self._build()
         if image:                                   # start on a still image instead of the camera
             self.current = cv2.imread(image); self.frozen = self.dirty = True
@@ -43,12 +46,17 @@ class App:
         left = tk.Frame(self.root, bg=BG); left.grid(row=0, column=0, padx=16, pady=16, sticky="n")
         tk.Label(left, text="FUZZY HANDWRITING READER", bg=BG, fg=FG, font=("Helvetica", 16, "bold")).pack(anchor="w")
         tk.Label(left, text="alphanumeric detection using fuzzy rules", bg=BG, fg=DIM, font=("Helvetica", 10)).pack(anchor="w", pady=(0, 8))
-        self.video = tk.Label(left, bg="black", width=VIDEO_W, height=VIDEO_H); self.video.pack()
+        self.video = tk.Label(left, bg="black", width=VIDEO_W, height=VIDEO_H, cursor="crosshair"); self.video.pack()
+        self.video.bind("<ButtonPress-1>", self.drag_start); self.video.bind("<B1-Motion>", self.drag_move)
+        self.video.bind("<ButtonRelease-1>", self.drag_end); self.video.bind("<Button-3>", lambda e: self.clear_area())
         bar = tk.Frame(left, bg=BG); bar.pack(fill="x", pady=10)
+        self._btn(bar, "Read with AI", self.read_ai, "#1f9d6b")
         self.btn_freeze = self._btn(bar, "Freeze", self.toggle_freeze, ACCENT)
         self._btn(bar, "Save snapshot", self.save_snapshot)
         self._btn(bar, "Open image…", self.open_image)
+        self._btn(bar, "Clear area", self.clear_area)
         self._btn(bar, "Switch camera", self.next_camera)
+        tk.OptionMenu(bar, self.mode, "auto", "digits", "letters", command=lambda _: self._redo()).pack(side="left", padx=(8, 0))
         tk.Checkbutton(bar, text="Context rules", variable=self.context, bg=BG, fg=FG, selectcolor="#262a36", activebackground=BG, activeforeground=FG, highlightthickness=0, command=self._redo).pack(side="left", padx=(8, 0))
         self.status = tk.Label(left, text="", bg=BG, fg=DIM, font=("Helvetica", 9)); self.status.pack(anchor="w")
 
@@ -63,7 +71,7 @@ class App:
         tk.Label(right, text="PER CHARACTER  (best 3 guesses, membership 0–1)", bg=PANEL, fg=DIM, font=("Helvetica", 9, "bold")).pack(anchor="w", padx=16, pady=(16, 4))
         self.detail = tk.Label(right, text="", bg=PANEL, fg=FG, font=("Courier", 10), justify="left", anchor="nw")
         self.detail.pack(anchor="w", padx=16, fill="x")
-        tk.Label(right, text="Write dark ink on plain paper, one line, big letters,\nhold it steady inside the frame.", bg=PANEL, fg=DIM, font=("Helvetica", 9), justify="left").pack(side="bottom", anchor="w", padx=16, pady=12)
+        tk.Label(right, text="Drag on the video to read only that area (right-click clears).\nDark ink on plain paper works best. ? = not sure.", bg=PANEL, fg=DIM, font=("Helvetica", 9), justify="left").pack(side="bottom", anchor="w", padx=16, pady=12)
 
     def _btn(self, parent, text, cmd, col="#262a36"):
         b = tk.Button(parent, text=text, command=cmd, bg=col, fg=FG, activebackground=ACCENT, activeforeground=FG,
@@ -81,10 +89,58 @@ class App:
     def next_camera(self):
         self.cam_index = (self.cam_index + 1) % 4; self.open_camera()
 
+    # ---------- choose the area to read ----------
+    def drag_start(self, e):
+        self.drag = [e.x, e.y, e.x, e.y]
+
+    def drag_move(self, e):
+        if self.drag:
+            self.drag[2:] = [e.x, e.y]; self.dirty = True
+
+    def drag_end(self, e):
+        if not self.drag: return
+        x0, y0, x1, y1 = self.drag; self.drag = None
+        if abs(x1 - x0) > 25 and abs(y1 - y0) > 25 and self.current is not None:
+            k, (h, w) = self.scale, self.current.shape[:2]
+            self.roi = (max(0, int(min(x0, x1) * k)), max(0, int(min(y0, y1) * k)), min(w, int(max(x0, x1) * k)), min(h, int(max(y0, y1) * k)))
+            self.tracker.reset()
+        self.dirty = True
+
+    def clear_area(self):
+        self.roi = None; self.drag = None; self.tracker.reset(); self.dirty = True
+
     def _redo(self):
         self.dirty = True
 
+    def read_ai(self):
+        """Pretrained handwriting model (TrOCR) reads the whole page / selected area, line by line."""
+        if self.current is None or self.ai_busy: return
+        self.ai_busy, self.frozen = True, True
+        self.btn_freeze.config(text="Resume")
+        frame, roi = self.current.copy(), self.roi
+        ox, oy = (roi[0], roi[1]) if roi else (0, 0)
+        crop = frame[roi[1]:roi[3], roi[0]:roi[2]] if roi else frame
+        self.status.config(text="AI is reading… (first time it downloads the model, give it a minute)")
+        def work():
+            try:
+                import htr
+                res = htr.read_page(crop, lambda i, n: self.root.after(0, lambda: self.status.config(text=f"AI reading line {i}/{n}…")))
+                self.root.after(0, lambda: self.show_ai([((b[0] + ox, b[1] + oy, b[2], b[3]), t) for b, t in res]))
+            except Exception as e:
+                self.root.after(0, lambda: self.status.config(text=f"AI reader failed: {e}"))
+            self.ai_busy = False
+        threading.Thread(target=work, daemon=True).start()
+
+    def show_ai(self, lines):
+        self.ai_lines, self.ai_mode, self.dirty = lines, True, True
+        self.text.config(text="\n".join(t for _, t in lines) or "(no text found)", font=("Courier", 11), wraplength=345)
+        self.detail.config(text="")
+        self.rel_label.config(text="read by a pretrained handwriting model (TrOCR)")
+        self.rel_canvas.delete("all")
+        self.status.config(text=f"AI read {len(lines)} lines")
+
     def toggle_freeze(self):
+        self.ai_mode = False; self.text.config(font=("Courier", 26, "bold"), wraplength=340)
         self.frozen = not self.frozen
         self.btn_freeze.config(text="Resume" if self.frozen else "Freeze")
 
@@ -110,10 +166,11 @@ class App:
         if getattr(self, "current", None) is not None and (not self.frozen or self.dirty):
             self.dirty = False
             self.last_result = recognise(self.current, self.model, self.names, self.context.get(),
-                                         None if self.frozen else self.tracker)
+                                         None if self.frozen else self.tracker, self.roi, self.mode.get())
             self.shown = self.draw(self.current, self.last_result)
             self.update_panel(self.last_result)
             h, w = self.shown.shape[:2]
+            self.scale = w / VIDEO_W
             img = cv2.cvtColor(cv2.resize(self.shown, (VIDEO_W, round(h * VIDEO_W / w))), cv2.COLOR_BGR2RGB)
             self.photo = ImageTk.PhotoImage(Image.fromarray(img))
             self.video.config(image=self.photo, width=img.shape[1], height=img.shape[0])
@@ -121,7 +178,16 @@ class App:
 
     def draw(self, frame, lines):
         out = frame.copy()
-        for line in lines:
+        k0 = max(1.0, out.shape[1] / 640)
+        if self.roi:
+            cv2.rectangle(out, self.roi[:2], self.roi[2:], bgr(ACCENT), round(2 * k0))
+        if self.drag:
+            d = [int(v * self.scale) for v in self.drag]
+            cv2.rectangle(out, (d[0], d[1]), (d[2], d[3]), bgr(ACCENT), round(1 * k0))
+        for i, (b, _) in enumerate(self.ai_lines if self.ai_mode else []):
+            cv2.rectangle(out, b[:2], (b[0] + b[2], b[1] + b[3]), (60, 160, 255), round(2 * k0))
+            cv2.putText(out, str(i + 1), (b[0] + 4, b[1] + 22 * round(k0)), cv2.FONT_HERSHEY_SIMPLEX, 0.7 * k0, (60, 160, 255), round(2 * k0), cv2.LINE_AA)
+        for line in ([] if self.ai_mode else lines):
             for c in line:
                 x, y, w, h = c["box"]; col = bgr(LEVEL_COL[c["level"]])
                 k = max(1.0, out.shape[1] / 640)
@@ -130,6 +196,7 @@ class App:
         return out
 
     def update_panel(self, lines):
+        if self.ai_mode: return
         chars = [c for l in lines for c in l]
         self.text.config(text=to_text(lines) if chars else "—")
         avg = sum(c["reliability"] for c in chars) / len(chars) if chars else 0
