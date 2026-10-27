@@ -1,0 +1,6 @@
+{
+  "top1": 0.8723404255319149,
+  "top3": 0.9869148936170212,
+  "camera_benchmark_char_accuracy": 0.8324642857142858,
+  "camera_benchmark_count_correct": 0.975
+}
